@@ -43,6 +43,23 @@ static void checksum_help(void)
 	fprintf(stderr, "\n");
 }
 
+#define MAP_ENTRY(idx) [idx] = { .index = idx, .name = # idx , }
+#define NAMED_MAP_ENTRY(idx, named) [idx] = {.index = idx, .name = named, }
+
+static struct carl9170fw_pattern_map_entry pattern_names[__CARL9170FW_NUM_PATTERNS] = {
+	MAP_ENTRY(NO_PATTERN),
+	MAP_ENTRY(ONE_KHZ),
+	MAP_ENTRY(TEN_KHZ),
+	MAP_ENTRY(ONE_TWO_KHZ),
+
+	MAP_ENTRY(FCC1),
+	MAP_ENTRY(FCC4),
+
+	MAP_ENTRY(ETSIFIXED),
+        MAP_ENTRY(CUSTOM),
+};
+
+
 static int add_patterns(struct carlfw *fw) {
 	const struct carl9170fw_otus_desc *otus_desc = NULL;
 	struct carl9170fw_pattern_desc *pattern_desc = NULL;

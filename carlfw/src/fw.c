@@ -103,7 +103,7 @@ const struct carl9170_firmware_descriptor __in_section(fwdsc) __visible carl9170
 
 #if defined(CONFIG_CARL9170FW_PATTERN_GENERATOR)
 	FILL(pattern, PATTERN,
-	     .soft_pattern = cpu_to_le32(&fw.wlan.soft_pattern),
+	     .soft_pattern = 0,
 	     .num_patterns = __CARL9170FW_NUM_PATTERNS,
 	     .patterns = { /* filled by the fwprepare tool */ },
 	),

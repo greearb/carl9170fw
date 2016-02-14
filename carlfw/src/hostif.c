@@ -31,6 +31,9 @@
 #include "rf.h"
 #include "timer.h"
 #include "wol.h"
+#if defined(CONFIG_CARL9170FW_PATTERN_GENERATOR)
+#include "pattern_generator.h"
+#endif
 
 static bool length_check(struct dma_desc *desc)
 {
@@ -187,8 +190,14 @@ void handle_cmd(struct carl9170_rsp *resp)
 
 	case CARL9170_CMD_WREG:
 		resp->hdr.len = 0;
-		for (i = 0; i < (cmd->hdr.len / 8); i++)
-			set(cmd->wreg.regs[i].addr, cmd->wreg.regs[i].val);
+		for (i = 0; i < (cmd->hdr.len / 8); i++) {
+#if defined(CONFIG_CARL9170FW_PATTERN_GENERATOR)
+			if (cmd->wreg.regs[i].addr & 0x80000000)
+				pattern_wreg(cmd->wreg.regs[i].addr, cmd->wreg.regs[i].val);
+			else
+#endif
+				set(cmd->wreg.regs[i].addr, cmd->wreg.regs[i].val);
+		}
 		break;
 
 	case CARL9170_CMD_ECHO:

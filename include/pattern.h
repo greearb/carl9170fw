@@ -39,6 +39,8 @@ enum PATTERN_TYPE {
 
 	ETSIFIXED,
 
+        CUSTOM,
+
 	/* keep last */
 	__CARL9170FW_NUM_PATTERNS
 };
@@ -52,105 +54,9 @@ struct pattern_pulse_info {
 
 struct pattern_info {
 	unsigned int pulses;
-	const struct pattern_pulse_info *pattern;
+	struct pattern_pulse_info *pattern;
 };
 
-static const struct pattern_pulse_info pattern_NO_PATTERN[0] = {  };
-static const struct pattern_pulse_info pattern_ONE_KHZ[] = {
-	{
-		.pulse_width = 1,
-		.pulse_interval = 1000,
-		.pulse_pattern = 0xaa55,
-		.pulse_mode    = 0x17f01,
-	},
-};
-
-static const struct pattern_pulse_info pattern_TEN_KHZ[] = {
-	{
-		.pulse_width = 1,
-		.pulse_interval = 100,
-		.pulse_pattern = 0xaa55,
-		.pulse_mode    = 0x17f01,
-	},
-};
-
-static const struct pattern_pulse_info pattern_ONE_TWO_KHZ[] = {
-	{
-		.pulse_width = 1,
-		.pulse_interval = 1000,
-		.pulse_pattern = 0xaa55,
-		.pulse_mode    = 0x17f01,
-	},
-
-	{
-		.pulse_width = 10,
-		.pulse_interval = 500,
-		.pulse_pattern = 0xaa55,
-		.pulse_mode    = 0x17f01,
-	},
-};
-
-/*
- * Data taken from:
- * <http://linuxwireless.org/en/developers/DFS>
- */
-
-/* FCC Test Signal 1 - 1us pulse, 1428 us interval */
-static const struct pattern_pulse_info pattern_FCC1[] = {
-	{
-		.pulse_width = 1,
-		.pulse_interval = 1428,
-		.pulse_pattern = 0xaa55,
-		.pulse_mode    = 0x17f01,
-	},
-};
-
-/* FCC Test Signal 4 - 11-20us pulse, 200-500 us interval */
-static const struct pattern_pulse_info pattern_FCC4[] = {
-	{
-		.pulse_width = 11,
-		.pulse_interval = 200,
-		.pulse_pattern = 0xaa55,
-		.pulse_mode    = 0x7f01,
-	},
-};
-
-/* ETSI Test Signal 1 (Fixed) - 1us Pulse, 750 us interval */
-static const struct pattern_pulse_info pattern_ETSIFIXED[] = {
-	{
-		.pulse_width = 1,
-		.pulse_interval = 750,
-		.pulse_pattern = 0xaa55,
-		.pulse_mode    = 0x7f01,
-	},
-};
-
-
-#define ADD_RADAR(name) [name] = { .pulses = ARRAY_SIZE(pattern_## name), .pattern = pattern_## name }
-
-static const struct pattern_info patterns[__CARL9170FW_NUM_PATTERNS] = {
-	ADD_RADAR(NO_PATTERN),
-	ADD_RADAR(ONE_KHZ),
-	ADD_RADAR(TEN_KHZ),
-	ADD_RADAR(ONE_TWO_KHZ),
-	ADD_RADAR(FCC1),
-	ADD_RADAR(FCC4),
-	ADD_RADAR(ETSIFIXED),
-};
-
-#define MAP_ENTRY(idx) [idx] = { .index = idx, .name = # idx , }
-#define NAMED_MAP_ENTRY(idx, named) [idx] = {.index = idx, .name = named, }
-
-static const struct carl9170fw_pattern_map_entry pattern_names[__CARL9170FW_NUM_PATTERNS] = {
-	MAP_ENTRY(NO_PATTERN),
-	MAP_ENTRY(ONE_KHZ),
-	MAP_ENTRY(TEN_KHZ),
-	MAP_ENTRY(ONE_TWO_KHZ),
-
-	MAP_ENTRY(FCC1),
-	MAP_ENTRY(FCC4),
-
-	MAP_ENTRY(ETSIFIXED),
-};
+void pattern_wreg(uint32_t addr, uint32_t val);
 
 #endif /* __CARL9170FW_PATTERN_H */
