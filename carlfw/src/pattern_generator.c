@@ -153,8 +153,12 @@ void pattern_wreg(uint32_t addr, uint32_t val)
 	if (addr == 0xFFFF) {
 		fw.wlan.soft_pattern = val;
 		/* Reset the pattern indices as well. */
-		fw.wlan.pattern_last = 0;
+		fw.wlan.pattern_last = get_clock_counter();
 		fw.wlan.pattern_index = 0;
+                if (fw.wlan.soft_pattern == NO_PATTERN) {
+                   set(0x1C3BBC, 0); /* Disable pulse mode */
+                   set(0x1C3BC0, 0); /* Clear pulse pattern */
+                }
 	} else if (addr == 0xFFFE) {
 		pi->pulses = val;
 	} else {
@@ -186,7 +190,7 @@ void pattern_generator(void)
 				 */
 				if (ppi->pulse_width) {
 					udelay(ppi->pulse_width);
-					set(0x1C3BBC, ~ppi->pulse_mode);
+					set(0x1C3BBC, 0);
 				}
 				fw.wlan.pattern_index++;
 			}
