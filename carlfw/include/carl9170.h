@@ -143,7 +143,10 @@ struct firmware_context_struct {
 #if defined(CONFIG_CARL9170FW_PATTERN_GENERATOR)
 		unsigned int soft_pattern,
 			     pattern_last,
-			     pattern_index;
+			     pulse_index;
+		unsigned int in_pulse; /* Are we in middle of a pulse? */
+		unsigned int start_pulse_ticks; /* Start of pulse timer, ticks */
+		unsigned int last_pulse_width; /* How long to pulse, us */
 #endif /* CONFIG_CARL9170FW_PATTERN_GENERATOR */
 	} wlan;
 

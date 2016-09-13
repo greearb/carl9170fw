@@ -99,8 +99,8 @@ static struct pattern_pulse_info pattern_ETSIFIXED[] = {
 
 /* Users may configure this accordingly.  There are 4 patterns here,
  * so the host driver will need to fill all 4 of them accordingly
- * in order to provide expected results (some may have zero pulse_width
- * if they should be skipped, for instance.)
+ * in order to provide expected results (and set the 'pulses' to proper
+ * number in case we should skip those at the end)
  */
 static struct pattern_pulse_info pattern_CUSTOM[] = {
 	{
@@ -154,7 +154,8 @@ void pattern_wreg(uint32_t addr, uint32_t val)
 		fw.wlan.soft_pattern = val;
 		/* Reset the pattern indices as well. */
 		fw.wlan.pattern_last = get_clock_counter();
-		fw.wlan.pattern_index = 0;
+		fw.wlan.pulse_index = 0;
+		fw.wlan.in_pulse = 0;
                 if (fw.wlan.soft_pattern == NO_PATTERN) {
                    set(0x1C3BBC, 0); /* Disable pulse mode */
                    set(0x1C3BC0, 0); /* Clear pulse pattern */
@@ -167,6 +168,7 @@ void pattern_wreg(uint32_t addr, uint32_t val)
 	}
 }
 
+#define MAX_UDELAY_SPIN_TICKS (100 * fw.ticks_per_usec)
 void pattern_generator(void)
 {
 	if (fw.phy.state == CARL9170_PHY_ON) {
@@ -175,12 +177,36 @@ void pattern_generator(void)
 			return;
 
 		const struct pattern_info *pattern = &patterns[fw.wlan.soft_pattern];
-		if (pattern->pulses >= fw.wlan.pattern_index) {
-			fw.wlan.pattern_index = 0;
+
+		/* For long enough pulses, we do not want to spin here, but instead we
+		 * will leave system in previous state until we are close to the timer
+		 * expiration.
+		 */
+		if (fw.wlan.in_pulse) {
+			/* We will spin the last bit of time to try to be as accurate as possible. */
+			if (is_after_usecs(fw.wlan.start_pulse_ticks - MAX_UDELAY_SPIN_TICKS, fw.wlan.last_pulse_width)) {
+				uint32_t expire_at_ticks = fw.wlan.start_pulse_ticks + (fw.wlan.last_pulse_width * fw.ticks_per_usec);
+				uint32_t now_ticks = get_clock_counter();
+				if (expire_at_ticks > now_ticks) {
+					uint32_t sleep_time = expire_at_ticks - now_ticks;
+					if (sleep_time > MAX_UDELAY_SPIN_TICKS)
+						sleep_time = MAX_UDELAY_SPIN_TICKS;
+					udelay(sleep_time / fw.ticks_per_usec);
+				}
+				goto pulse_done;
+			}
+			/* Check back a bit later */
+			return;
+		}
+                
+		if (fw.wlan.pulse_index >= pattern->pulses) {
+			/* Loop back to the first pattern */
+			fw.wlan.pulse_index = 0;
 		}
 
-		if (pattern->pulses > fw.wlan.pattern_index) {
-			const struct pattern_pulse_info *ppi = &pattern->pattern[fw.wlan.pattern_index];
+		/* Make sure we have at least one pulse defined */
+		if (fw.wlan.pulse_index < pattern->pulses) {
+			const struct pattern_pulse_info *ppi = &pattern->pattern[fw.wlan.pulse_index];
 			if (is_after_usecs(fw.wlan.pattern_last, ppi->pulse_interval)) {
 				fw.wlan.pattern_last = get_clock_counter();
 				set(0x1C3BC0, ppi->pulse_pattern);
@@ -189,10 +215,19 @@ void pattern_generator(void)
 				 * should we change the pulse mode back if it is zero.
 				 */
 				if (ppi->pulse_width) {
+					if ((ppi->pulse_width * fw.ticks_per_usec) > MAX_UDELAY_SPIN_TICKS) {
+						fw.wlan.in_pulse = true;
+						fw.wlan.start_pulse_ticks = fw.wlan.pattern_last;
+						fw.wlan.last_pulse_width = ppi->pulse_width;
+						return;
+					}
 					udelay(ppi->pulse_width);
-					set(0x1C3BBC, 0);
+pulse_done:
+					set(0x1C3BBC, 0); /* Disable pulse mode */
+					set(0x1C3BC0, 0); /* Clear pulse pattern */
+					fw.wlan.in_pulse = false;
 				}
-				fw.wlan.pattern_index++;
+				fw.wlan.pulse_index++;
 			}
 		}
 	}

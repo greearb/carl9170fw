@@ -44,14 +44,34 @@ static inline __inline uint32_t get_clock_counter(void)
  * Also, the delay wait will be affected by 2.4GHz<->5GHz
  * band changes.
  */
-static inline __inline bool is_after_msecs(const uint32_t t0, const uint32_t msecs)
-{
-	return ((get_clock_counter() - t0) / 1000) > (msecs * fw.ticks_per_usec);
-}
-
 static inline __inline bool is_after_usecs(const uint32_t t0, const uint32_t usecs)
 {
-	return ((get_clock_counter() - t0)) > (usecs * fw.ticks_per_usec);
+	const uint32_t wrap_diff = ((uint32_t)(0xFFFFFFFF)) / 3;
+	const uint32_t wrap_diff2 = wrap_diff * 2;
+	uint32_t now_ticks = get_clock_counter();
+	uint32_t tot;
+
+	if (t0 > now_ticks) {
+		/* Ok, we have potential cycles wrap. */
+		/* Check case where we did normal wrap and t0 is in the past. */
+		if ((now_ticks < wrap_diff) && (t0 > wrap_diff2))
+			goto wrapped;
+		/* Check case where t0 is a bit in the future */
+		if ((now_ticks < wrap_diff) && (t0 > wrap_diff2))
+			return 0; /* t0 is in future, so any additional usecs is NOT after t0 */
+	}
+	return ((now_ticks - t0)) > (usecs * fw.ticks_per_usec);
+
+wrapped:
+	/* Looks like we must have wrapped */
+	tot = (uint32_t)(0xFFFFFFFF) - t0;
+	tot += now_ticks;
+	return (tot > (usecs * fw.ticks_per_usec));
+}
+
+static inline __inline bool is_after_msecs(const uint32_t t0, const uint32_t msecs)
+{
+	return is_after_usecs(t0, msecs * 1000);
 }
 
 /*
