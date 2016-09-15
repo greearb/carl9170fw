@@ -30,35 +30,39 @@
 static struct pattern_pulse_info pattern_NO_PATTERN[0] = {  };
 static struct pattern_pulse_info pattern_ONE_KHZ[] = {
 	{
-		.pulse_width = 1,
-		.pulse_interval = 1000,
+		.pulse_width_us = 1,
+		.pulse_interval_us = 1000,
 		.pulse_pattern = 0xaa55,
 		.pulse_mode    = 0x17f01,
+		.pulse_count = 20,
 	},
 };
 
 static struct pattern_pulse_info pattern_TEN_KHZ[] = {
 	{
-		.pulse_width = 1,
-		.pulse_interval = 100,
+		.pulse_width_us = 1,
+		.pulse_interval_us = 100,
 		.pulse_pattern = 0xaa55,
 		.pulse_mode    = 0x17f01,
+		.pulse_count = 50,
 	},
 };
 
 static struct pattern_pulse_info pattern_ONE_TWO_KHZ[] = {
 	{
-		.pulse_width = 1,
-		.pulse_interval = 1000,
+		.pulse_width_us = 1,
+		.pulse_interval_us = 1000,
 		.pulse_pattern = 0xaa55,
 		.pulse_mode    = 0x17f01,
+		.pulse_count = 20,
 	},
 
 	{
-		.pulse_width = 10,
-		.pulse_interval = 500,
+		.pulse_width_us = 10,
+		.pulse_interval_us = 500,
 		.pulse_pattern = 0xaa55,
 		.pulse_mode    = 0x17f01,
+		.pulse_count = 15,
 	},
 };
 
@@ -70,30 +74,60 @@ static struct pattern_pulse_info pattern_ONE_TWO_KHZ[] = {
 /* FCC Test Signal 1 - 1us pulse, 1428 us interval */
 static struct pattern_pulse_info pattern_FCC1[] = {
 	{
-		.pulse_width = 1,
-		.pulse_interval = 1428,
+		.pulse_width_us = 1,
+		.pulse_interval_us = 1428,
 		.pulse_pattern = 0xaa55,
 		.pulse_mode    = 0x17f01,
+		.pulse_count = 18,
+	},
+	/* Then pause for a bit to emulate radar source sweep */
+	/* 15 seconds might be more realistic, but to speed things up, let's assume 5 */
+	{
+		.pulse_width_us = 1,
+		.pulse_interval_us = (5 * 1000000),
+		.pulse_pattern = 0xaa55,
+		.pulse_mode    = 0x17f01,
+		.pulse_count = 1,
 	},
 };
 
 /* FCC Test Signal 4 - 11-20us pulse, 200-500 us interval */
 static struct pattern_pulse_info pattern_FCC4[] = {
 	{
-		.pulse_width = 11,
-		.pulse_interval = 200,
+		.pulse_width_us = 11,
+		.pulse_interval_us = 200,
 		.pulse_pattern = 0xaa55,
 		.pulse_mode    = 0x7f01,
+		.pulse_count = 12,
+	},
+	/* Then pause for a bit to emulate radar source sweep */
+	/* 15 seconds might be more realistic, but to speed things up, let's assume 5 */
+	{
+		.pulse_width_us = 11,
+		.pulse_interval_us = (5 * 1000000),
+		.pulse_pattern = 0xaa55,
+		.pulse_mode    = 0x17f01,
+		.pulse_count = 1,
 	},
 };
 
 /* ETSI Test Signal 1 (Fixed) - 1us Pulse, 750 us interval */
 static struct pattern_pulse_info pattern_ETSIFIXED[] = {
 	{
-		.pulse_width = 1,
-		.pulse_interval = 750,
+		.pulse_width_us = 1,
+		.pulse_interval_us = 750,
 		.pulse_pattern = 0xaa55,
 		.pulse_mode    = 0x7f01,
+		.pulse_count = 18,
+	},
+	/* Then pause for a bit to emulate radar source sweep */
+	/* 15 seconds might be more realistic, but to speed things up, let's assume 5 */
+	{
+		.pulse_width_us = 1,
+		.pulse_interval_us = (5 * 1000000),
+		.pulse_pattern = 0xaa55,
+		.pulse_mode    = 0x17f01,
+		.pulse_count = 1,
 	},
 };
 
@@ -104,31 +138,35 @@ static struct pattern_pulse_info pattern_ETSIFIXED[] = {
  */
 static struct pattern_pulse_info pattern_CUSTOM[] = {
 	{
-		.pulse_width = 1,
-		.pulse_interval = 1000,
+		.pulse_width_us = 1,
+		.pulse_interval_us = 1000,
 		.pulse_pattern = 0xaa55,
 		.pulse_mode    = 0x17f01,
+		.pulse_count = 10,
 	},
 
 	{
-		.pulse_width = 10,
-		.pulse_interval = 500,
+		.pulse_width_us = 1,
+		.pulse_interval_us = 1000000,
 		.pulse_pattern = 0xaa55,
 		.pulse_mode    = 0x17f01,
+		.pulse_count = 1,
 	},
 
 	{
-		.pulse_width = 10,
-		.pulse_interval = 500,
+		.pulse_width_us = 10,
+		.pulse_interval_us = 500,
 		.pulse_pattern = 0xaa55,
 		.pulse_mode    = 0x17f01,
+		.pulse_count = 10,
 	},
 
 	{
-		.pulse_width = 10,
-		.pulse_interval = 500,
+		.pulse_width_us = 10,
+		.pulse_interval_us = 1000000,
 		.pulse_pattern = 0xaa55,
 		.pulse_mode    = 0x17f01,
+		.pulse_count = 1,
 	},
 };
 
@@ -156,6 +194,7 @@ void pattern_wreg(uint32_t addr, uint32_t val)
 		fw.wlan.pattern_last = get_clock_counter();
 		fw.wlan.pulse_index = 0;
 		fw.wlan.in_pulse = 0;
+		fw.wlan.pulse_count = 0;
                 if (fw.wlan.soft_pattern == NO_PATTERN) {
                    set(0x1C3BBC, 0); /* Disable pulse mode */
                    set(0x1C3BC0, 0); /* Clear pulse pattern */
@@ -184,8 +223,8 @@ void pattern_generator(void)
 		 */
 		if (fw.wlan.in_pulse) {
 			/* We will spin the last bit of time to try to be as accurate as possible. */
-			if (is_after_usecs(fw.wlan.start_pulse_ticks - MAX_UDELAY_SPIN_TICKS, fw.wlan.last_pulse_width)) {
-				uint32_t expire_at_ticks = fw.wlan.start_pulse_ticks + (fw.wlan.last_pulse_width * fw.ticks_per_usec);
+			if (is_after_usecs(fw.wlan.start_pulse_ticks - MAX_UDELAY_SPIN_TICKS, fw.wlan.last_pulse_width_us)) {
+				uint32_t expire_at_ticks = fw.wlan.start_pulse_ticks + (fw.wlan.last_pulse_width_us * fw.ticks_per_usec);
 				uint32_t now_ticks = get_clock_counter();
 				if (expire_at_ticks > now_ticks) {
 					uint32_t sleep_time = expire_at_ticks - now_ticks;
@@ -202,32 +241,46 @@ void pattern_generator(void)
 		if (fw.wlan.pulse_index >= pattern->pulses) {
 			/* Loop back to the first pattern */
 			fw.wlan.pulse_index = 0;
+			fw.wlan.pulse_count = 0;
 		}
 
 		/* Make sure we have at least one pulse defined */
 		if (fw.wlan.pulse_index < pattern->pulses) {
 			const struct pattern_pulse_info *ppi = &pattern->pattern[fw.wlan.pulse_index];
-			if (is_after_usecs(fw.wlan.pattern_last, ppi->pulse_interval)) {
+			if (is_after_usecs(fw.wlan.pattern_last, ppi->pulse_interval_us)) {
 				fw.wlan.pattern_last = get_clock_counter();
+
+				if (ppi->pulse_width_us == 0xFFFFFFFF) {
+					/* 0xFFFFFFFF pulse width means '0', backwards compat reasons. */
+					 goto pulse_done;
+				}
+
 				set(0x1C3BC0, ppi->pulse_pattern);
 				set(0x1C3BBC, ppi->pulse_mode);
+
 				/* Zero pulse-width means 'infinite', so don't delay nor
 				 * should we change the pulse mode back if it is zero.
 				 */
-				if (ppi->pulse_width) {
-					if ((ppi->pulse_width * fw.ticks_per_usec) > MAX_UDELAY_SPIN_TICKS) {
+				if (ppi->pulse_width_us) {
+					if ((ppi->pulse_width_us * fw.ticks_per_usec) > MAX_UDELAY_SPIN_TICKS) {
 						fw.wlan.in_pulse = true;
 						fw.wlan.start_pulse_ticks = fw.wlan.pattern_last;
-						fw.wlan.last_pulse_width = ppi->pulse_width;
+						fw.wlan.last_pulse_width_us = ppi->pulse_width_us;
 						return;
 					}
-					udelay(ppi->pulse_width);
+					udelay(ppi->pulse_width_us);
 pulse_done:
 					set(0x1C3BBC, 0); /* Disable pulse mode */
 					set(0x1C3BC0, 0); /* Clear pulse pattern */
 					fw.wlan.in_pulse = false;
 				}
-				fw.wlan.pulse_index++;
+				/* in case we get here from the goto statement */
+				ppi = &pattern->pattern[fw.wlan.pulse_index];
+				fw.wlan.pulse_count++;
+				if (fw.wlan.pulse_count >= ppi->pulse_count) {
+					fw.wlan.pulse_index++;
+					fw.wlan.pulse_count = 0;
+				}
 			}
 		}
 	}

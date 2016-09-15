@@ -46,10 +46,11 @@ enum PATTERN_TYPE {
 };
 
 struct pattern_pulse_info {
-	unsigned int pulse_width;
-	unsigned int pulse_interval;
-	uint32_t     pulse_pattern;
-	uint32_t     pulse_mode;
+	uint32_t pulse_width_us; /* tx-100 on for this usec */
+	uint32_t pulse_interval_us; /* Pulse repeats every X usec */
+	uint32_t pulse_pattern; /* tx-100 pattern fed into the hardware */
+	uint32_t pulse_mode; /* encoding rate, ht20/40, tx-power, etc */
+	uint32_t pulse_count; /* How many pulse intervals before we go to next pattern */
 };
 
 struct pattern_info {

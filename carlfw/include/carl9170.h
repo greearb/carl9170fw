@@ -146,7 +146,8 @@ struct firmware_context_struct {
 			     pulse_index;
 		unsigned int in_pulse; /* Are we in middle of a pulse? */
 		unsigned int start_pulse_ticks; /* Start of pulse timer, ticks */
-		unsigned int last_pulse_width; /* How long to pulse, us */
+		unsigned int last_pulse_width_us; /* How long to pulse, us */
+		unsigned int pulse_count; /* How many pulses of current pattern have we done so far? */
 #endif /* CONFIG_CARL9170FW_PATTERN_GENERATOR */
 	} wlan;
 
