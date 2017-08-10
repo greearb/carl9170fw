@@ -97,7 +97,7 @@ static struct pattern_pulse_info pattern_FCC4[] = {
 		.pulse_width_us = 11,
 		.pulse_interval_us = 200,
 		.pulse_pattern = 0xaa55,
-		.pulse_mode    = 0x7f01,
+		.pulse_mode    = 0x17f01,
 		.pulse_count = 12,
 	},
 	/* Then pause for a bit to emulate radar source sweep */
@@ -117,7 +117,7 @@ static struct pattern_pulse_info pattern_ETSIFIXED[] = {
 		.pulse_width_us = 1,
 		.pulse_interval_us = 750,
 		.pulse_pattern = 0xaa55,
-		.pulse_mode    = 0x7f01,
+		.pulse_mode    = 0x17f01,
 		.pulse_count = 18,
 	},
 	/* Then pause for a bit to emulate radar source sweep */
@@ -252,7 +252,7 @@ void pattern_generator(void)
 
 				if (ppi->pulse_width_us == 0xFFFFFFFF) {
 					/* 0xFFFFFFFF pulse width means '0', backwards compat reasons. */
-					 goto pulse_done;
+					goto pulse_done;
 				}
 
 				set(0x1C3BC0, ppi->pulse_pattern);
@@ -261,19 +261,34 @@ void pattern_generator(void)
 				/* Zero pulse-width means 'infinite', so don't delay nor
 				 * should we change the pulse mode back if it is zero.
 				 */
-				if (ppi->pulse_width_us) {
-					if ((ppi->pulse_width_us * fw.ticks_per_usec) > MAX_UDELAY_SPIN_TICKS) {
-						fw.wlan.in_pulse = true;
-						fw.wlan.start_pulse_ticks = fw.wlan.pattern_last;
-						fw.wlan.last_pulse_width_us = ppi->pulse_width_us;
-						return;
-					}
-					udelay(ppi->pulse_width_us);
-pulse_done:
-					set(0x1C3BBC, 0); /* Disable pulse mode */
-					set(0x1C3BC0, 0); /* Clear pulse pattern */
-					fw.wlan.in_pulse = false;
+				if (!ppi->pulse_width_us) {
+					goto infinite_pulse;
 				}
+
+				/* Seems the minimal pulse we can reliably do is about
+				 * 17us.  Bail out as early as we can.
+				 */
+				if (ppi->pulse_width_us < 15) {
+					udelay(1);  // We need some small pause or bad/no pulse is generated.
+					//get(0x1C3BBC);  // We need some read or no pulse is generated.
+					//get(AR9170_TIMER_REG_CLOCK_LOW); // We need some read or no pulse is generated.
+					goto pulse_done;
+				}
+
+				if ((ppi->pulse_width_us * fw.ticks_per_usec) > MAX_UDELAY_SPIN_TICKS) {
+					fw.wlan.in_pulse = true;
+					fw.wlan.start_pulse_ticks = fw.wlan.pattern_last;
+					fw.wlan.last_pulse_width_us = ppi->pulse_width_us;
+					return;
+				}
+				udelay(ppi->pulse_width_us - 2); // small fudge to take overhead into account
+
+pulse_done:
+				set(0x1C3BBC, 0); /* Disable pulse mode */
+				set(0x1C3BC0, 0); /* Clear pulse pattern */
+				fw.wlan.in_pulse = false;
+
+infinite_pulse:
 				/* in case we get here from the goto statement */
 				ppi = &pattern->pattern[fw.wlan.pulse_index];
 				fw.wlan.pulse_count++;
